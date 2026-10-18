@@ -46,9 +46,11 @@ pub trait TokenVerifier: Send + Sync {
 pub struct OidcConfig {
     /// Nom stocké dans `identities.provider` (ex. `apple`).
     pub provider: String,
-    pub issuer: String,
+    /// Accepted `iss` values (Google publishes two spellings).
+    pub issuers: Vec<String>,
     pub jwks_url: String,
-    /// Pour Apple : l'identifiant de bundle de l'app.
+    /// Apple: the app's bundle ID. Google: the iOS client ID (or the "server" client ID if the
+    /// app configures one, since it then becomes the audience).
     pub audience: String,
     /// `true` : le claim `nonce` contient le SHA-256 hexadécimal du nonce brut (Apple).
     /// `false` : il contient le nonce brut.
@@ -59,10 +61,24 @@ impl OidcConfig {
     pub fn apple(bundle_id: &str) -> Self {
         Self {
             provider: "apple".into(),
-            issuer: "https://appleid.apple.com".into(),
+            issuers: vec!["https://appleid.apple.com".into()],
             jwks_url: "https://appleid.apple.com/auth/keys".into(),
             audience: bundle_id.into(),
             nonce_hashed: true,
+        }
+    }
+
+    pub fn google(client_id: &str) -> Self {
+        Self {
+            provider: "google".into(),
+            issuers: vec![
+                "https://accounts.google.com".into(),
+                "accounts.google.com".into(),
+            ],
+            jwks_url: "https://www.googleapis.com/oauth2/v3/certs".into(),
+            audience: client_id.into(),
+            // Google copies the nonce into the token as is.
+            nonce_hashed: false,
         }
     }
 }
@@ -174,7 +190,7 @@ impl TokenVerifier for OidcVerifier {
         let key = self.key_for(&kid).await?;
 
         let mut validation = Validation::new(Algorithm::RS256);
-        validation.set_issuer(&[&self.config.issuer]);
+        validation.set_issuer(&self.config.issuers);
         validation.set_audience(&[&self.config.audience]);
         validation.set_required_spec_claims(&["exp", "iss", "aud", "sub"]);
 
@@ -378,6 +394,28 @@ mod tests {
         let mut claims = claims();
         claims["iss"] = json!("https://accounts.evil.example");
         assert_rejected(claims, key_a_private_pem(), NONCE).await;
+    }
+
+    #[tokio::test]
+    async fn google_config_accepts_both_issuer_spellings_and_a_raw_nonce() {
+        for iss in ["https://accounts.google.com", "accounts.google.com"] {
+            let server = server_with(jwks(&[("kid-a", key_a_modulus())])).await;
+            let mut claims = claims();
+            claims["iss"] = json!(iss);
+            claims["aud"] = json!("client-ios.apps.googleusercontent.com");
+            // For Google, the `nonce` claim is the raw nonce (not its SHA-256).
+            claims["nonce"] = json!(NONCE);
+            let token = sign(&claims, "kid-a", key_a_private_pem());
+
+            let mut config = OidcConfig::google("client-ios.apps.googleusercontent.com");
+            config.jwks_url = format!("{}/keys", server.uri());
+            let identity = OidcVerifier::new(config)
+                .unwrap()
+                .verify(&token, NONCE)
+                .await
+                .unwrap();
+            assert_eq!(identity.provider, "google");
+        }
     }
 
     #[tokio::test]

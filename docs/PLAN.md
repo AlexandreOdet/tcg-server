@@ -50,10 +50,10 @@ Chaque phase se termine par un point de contrôle vérifiable.
 
 - [x] Migrations `users`, `identities`, `refresh_tokens`.
 - [x] Trait `TokenVerifier` + implémentation OIDC générique (issuer, JWKS, audience, nonce), cache des clés.
-- [x] `POST /auth/apple`, `POST /auth/refresh`, `POST /auth/logout`, `GET /me`.
+- [x] `POST /auth/{provider}` (Apple et Google, chacun activé par sa configuration), `POST /auth/refresh`, `POST /auth/logout`, `GET /me`.
 - [x] Access JWT (HS256, 15 min), refresh opaque haché avec rotation, extracteur `AuthUser`.
 - [x] Faux `TokenVerifier` pour les tests d'intégration.
-- [ ] **Valider avec un vrai jeton Apple** depuis l'app iOS (jamais testé contre Apple : voir ci-dessous).
+- [ ] **Valider avec un vrai jeton Google** (puis Apple, quand le compte développeur payant existera). Avant la soumission à l'App Store, Sign in with Apple est obligatoire dès qu'un login tiers est proposé (guideline 4.8) depuis l'app iOS (jamais testé contre Apple : voir ci-dessous).
 - [ ] Choix du pseudo (`PUT /me`), à faire avec l'écran d'inscription iOS.
 - [ ] Suppression de compte avec révocation du token Apple (obligatoire App Store) : demande de stocker l'`authorizationCode` / le refresh token Apple, chiffré, dès la connexion.
 

@@ -14,31 +14,15 @@ use tower::ServiceExt;
 use uuid::Uuid;
 
 use super::service;
-use crate::{
-    app,
-    auth::{
-        tokens::TokenService,
-        verifier::{TokenVerifier, VerifiedIdentity, VerifyError},
-    },
-    state::AppState,
-};
+use crate::{app, auth::tokens::TokenService, state::AppState};
 
 const SECRET: &str = "un-secret-de-test-d-au-moins-32-caracteres";
-
-struct NoApple;
-
-#[async_trait::async_trait]
-impl TokenVerifier for NoApple {
-    async fn verify(&self, _: &str, _: &str) -> Result<VerifiedIdentity, VerifyError> {
-        Err(VerifyError::Invalid("inutilisé".into()))
-    }
-}
 
 fn app(pool: PgPool) -> Router {
     app::router(AppState {
         pool,
         tokens: Arc::new(TokenService::new(SECRET).unwrap()),
-        apple: Arc::new(NoApple),
+        verifiers: Arc::default(),
         catalog: Arc::default(),
     })
 }

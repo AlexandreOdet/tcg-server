@@ -29,16 +29,21 @@ l'utilisateur.
 ⚠️ Un corps JSON mal formé (ou un champ manquant) est refusé par le framework avec un statut 4xx
 **sans** ce format (texte brut). L'app ne doit pas supposer que tout 4xx contient un `error`.
 
-## `POST /auth/apple`
+## `POST /auth/{provider}`
 
-Échange un jeton Sign in with Apple contre une session.
+`provider` vaut `apple` ou `google`. Un fournisseur non configuré sur le serveur répond `404 not_found`.
+Échange un jeton d'identité OIDC contre une session.
 
 ```json
-{ "identity_token": "<JWT renvoyé par Apple>", "nonce": "<nonce brut>" }
+{ "identity_token": "<JWT renvoyé par le fournisseur>", "nonce": "<nonce brut>" }
 ```
 
-**Nonce** : l'app génère une chaîne aléatoire (le *nonce brut*), envoie son **SHA-256 en hexadécimal
-minuscule** à Apple (`request.nonce`), et envoie le nonce **brut** ici. Le serveur compare.
+**Nonce** : l'app génère une chaîne aléatoire (le *nonce brut*) et envoie ici la valeur **brute**.
+- Apple : envoyer à Apple le **SHA-256 en hexadécimal minuscule** (`request.nonce`).
+- Google : envoyer à Google le nonce brut (paramètre `nonce:` de GoogleSignIn) ; Google le recopie dans le jeton.
+
+Un même `sub` chez deux fournisseurs donne deux identités distinctes, donc deux joueurs distincts
+(pas de liaison automatique de comptes pour l'instant).
 
 Réponse `200` :
 
@@ -60,7 +65,7 @@ Réponse `200` :
 { "refresh_token": "<refresh token courant>" }
 ```
 
-Réponse `200` : même forme que `/auth/apple` (`is_new_user` est toujours `false`).
+Réponse `200` : même forme que `/auth/{provider}` (`is_new_user` est toujours `false`).
 
 **Règles à respecter côté app :**
 

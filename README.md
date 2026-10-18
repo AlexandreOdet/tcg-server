@@ -13,7 +13,7 @@ cargo run -p api
 curl localhost:8080/health
 ```
 
-Le serveur exige `JWT_SECRET` (32 caractères minimum) et `APPLE_BUNDLE_ID` : voir `.env.example`.
+Le serveur exige `JWT_SECRET` (32 caractères minimum) et au moins un fournisseur de connexion, `GOOGLE_CLIENT_ID` et/ou `APPLE_BUNDLE_ID` : voir `.env.example`. Un fournisseur non configuré est désactivé.
 
 ## Documentation
 

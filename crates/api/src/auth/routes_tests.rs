@@ -24,7 +24,7 @@ const SECRET: &str = "un-secret-de-test-d-au-moins-32-caracteres";
 const NONCE: &str = "nonce-ok";
 
 /// Faux Apple : `ok:<sub>` est valide, `outage` simule une panne des clés, le reste est refusé.
-struct StubVerifier;
+struct StubVerifier(&'static str);
 
 #[async_trait]
 impl TokenVerifier for StubVerifier {
@@ -40,7 +40,7 @@ impl TokenVerifier for StubVerifier {
         }
         match id_token.strip_prefix("ok:") {
             Some(subject) if raw_nonce == NONCE => Ok(VerifiedIdentity {
-                provider: "apple".into(),
+                provider: self.0.into(),
                 subject: subject.into(),
                 email: Some(format!("{subject}@example.com")),
                 email_verified: true,
@@ -56,7 +56,17 @@ fn app(pool: PgPool) -> Router {
     app::router(AppState {
         pool,
         tokens: Arc::new(TokenService::new(SECRET).unwrap()),
-        apple: Arc::new(StubVerifier),
+        verifiers: Arc::new(
+            ["apple", "google"]
+                .into_iter()
+                .map(|name| {
+                    (
+                        name.to_owned(),
+                        Arc::new(StubVerifier(name)) as Arc<dyn TokenVerifier>,
+                    )
+                })
+                .collect(),
+        ),
         catalog: Arc::default(),
     })
 }
@@ -322,4 +332,44 @@ async fn logout_ends_the_session(pool: PgPool) {
         StatusCode::NO_CONTENT
     );
     assert_eq!(logout(json!("inconnu")).await, StatusCode::NO_CONTENT);
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn google_login_works_and_the_same_subject_is_a_different_player_per_provider(pool: PgPool) {
+    let app = app(pool);
+    let body = json!({ "identity_token": "ok:same-sub", "nonce": NONCE });
+
+    let (status, google) = call(&app, Method::POST, "/auth/google", Some(body.clone()), None).await;
+    assert_eq!(status, StatusCode::OK, "{google}");
+    assert_eq!(google["is_new_user"], true);
+
+    // Same `sub` at Apple: a different identity, hence a different player.
+    let (_, apple) = call(&app, Method::POST, "/auth/apple", Some(body), None).await;
+    assert_eq!(apple["is_new_user"], true);
+
+    let (_, a) = me(&app, Some(&bearer(&google["access_token"]))).await;
+    let (_, b) = me(&app, Some(&bearer(&apple["access_token"]))).await;
+    assert_ne!(a["id"], b["id"]);
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn an_unconfigured_provider_is_not_found(pool: PgPool) {
+    let body = json!({ "identity_token": "ok:x", "nonce": NONCE });
+    let (status, body) = call(&app(pool), Method::POST, "/auth/facebook", Some(body), None).await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    assert_eq!(body["error"]["code"], "not_found");
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn refresh_and_logout_are_not_swallowed_by_the_provider_route(pool: PgPool) {
+    // `/auth/refresh` must stay the refresh route, not be read as a "provider".
+    let (status, body) = call(
+        &app(pool),
+        Method::POST,
+        "/auth/refresh",
+        Some(json!({ "refresh_token": "inconnu" })),
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::UNAUTHORIZED, "{body}");
 }

@@ -9,8 +9,10 @@ pub struct Config {
     pub bind_addr: String,
     /// Secret de signature des access tokens (32 caractères minimum, vérifié au démarrage).
     pub jwt_secret: String,
-    /// Identifiant de bundle de l'app iOS : valeur attendue dans l'audience des jetons Apple.
-    pub apple_bundle_id: String,
+    /// iOS app bundle ID: audience of Apple tokens. Unset: Apple login disabled.
+    pub apple_bundle_id: Option<String>,
+    /// Google iOS client ID: audience of Google tokens. Unset: Google login disabled.
+    pub google_client_id: Option<String>,
 }
 
 fn default_bind_addr() -> String {
@@ -19,7 +21,19 @@ fn default_bind_addr() -> String {
 
 impl Config {
     pub fn from_env() -> anyhow::Result<Self> {
-        Ok(envy::from_env()?)
+        let config: Self = envy::from_env()?;
+        config.validate()?;
+        Ok(config)
+    }
+
+    /// A server with no login provider would be unusable: refuse to start.
+    fn validate(&self) -> anyhow::Result<()> {
+        let set = |v: &Option<String>| v.as_deref().is_some_and(|s| !s.trim().is_empty());
+        anyhow::ensure!(
+            set(&self.apple_bundle_id) || set(&self.google_client_id),
+            "configure at least one provider: APPLE_BUNDLE_ID and/or GOOGLE_CLIENT_ID"
+        );
+        Ok(())
     }
 }
 
@@ -31,6 +45,7 @@ impl std::fmt::Debug for Config {
             .field("bind_addr", &self.bind_addr)
             .field("jwt_secret", &"<masqué>")
             .field("apple_bundle_id", &self.apple_bundle_id)
+            .field("google_client_id", &self.google_client_id)
             .finish()
     }
 }
@@ -39,10 +54,9 @@ impl std::fmt::Debug for Config {
 mod tests {
     use super::*;
 
-    const REQUIRED: [(&str, &str); 3] = [
+    const REQUIRED: [(&str, &str); 2] = [
         ("database_url", "postgres://user:motdepasse@host/db"),
         ("jwt_secret", "un-secret-de-test-d-au-moins-32-caracteres"),
-        ("apple_bundle_id", "fr.exemple.tcg"),
     ];
 
     fn from_pairs(pairs: &[(&str, &str)]) -> Result<Config, envy::Error> {
@@ -82,9 +96,29 @@ mod tests {
 
     #[test]
     fn debug_output_hides_secrets() {
-        let output = format!("{:?}", from_pairs(&REQUIRED).unwrap());
+        let output = format!(
+            "{:?}",
+            from_pairs(&with(&[("apple_bundle_id", "fr.exemple.tcg")])).unwrap()
+        );
         assert!(!output.contains("motdepasse"));
         assert!(!output.contains("un-secret-de-test"));
         assert!(output.contains("fr.exemple.tcg"));
+    }
+
+    #[test]
+    fn at_least_one_provider_is_required() {
+        assert!(from_pairs(&REQUIRED).unwrap().validate().is_err());
+        let blank = from_pairs(&with(&[("google_client_id", "  ")])).unwrap();
+        assert!(blank.validate().is_err());
+    }
+
+    #[test]
+    fn either_provider_alone_is_enough() {
+        for extra in [
+            ("apple_bundle_id", "fr.exemple.tcg"),
+            ("google_client_id", "x.apps"),
+        ] {
+            assert!(from_pairs(&with(&[extra])).unwrap().validate().is_ok());
+        }
     }
 }

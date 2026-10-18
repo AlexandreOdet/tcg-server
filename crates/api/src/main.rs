@@ -22,7 +22,7 @@ use crate::{
         verifier::{OidcConfig, OidcVerifier},
     },
     config::Config,
-    state::AppState,
+    state::{AppState, Verifiers},
 };
 
 #[tokio::main]
@@ -36,7 +36,21 @@ async fn main() -> anyhow::Result<()> {
 
     let config = Config::from_env()?;
     let tokens = TokenService::new(&config.jwt_secret)?;
-    let apple = OidcVerifier::new(OidcConfig::apple(&config.apple_bundle_id))?;
+    let mut verifiers = Verifiers::new();
+    let configured = |value: &Option<String>| value.clone().filter(|s| !s.trim().is_empty());
+    if let Some(bundle_id) = configured(&config.apple_bundle_id) {
+        verifiers.insert(
+            "apple".into(),
+            Arc::new(OidcVerifier::new(OidcConfig::apple(&bundle_id))?),
+        );
+    }
+    if let Some(client_id) = configured(&config.google_client_id) {
+        verifiers.insert(
+            "google".into(),
+            Arc::new(OidcVerifier::new(OidcConfig::google(&client_id))?),
+        );
+    }
+    tracing::info!(providers = ?verifiers.keys().collect::<Vec<_>>(), "login providers");
 
     let pool = PgPoolOptions::new()
         .max_connections(10)
@@ -49,7 +63,7 @@ async fn main() -> anyhow::Result<()> {
     let state = AppState {
         pool,
         tokens: Arc::new(tokens),
-        apple: Arc::new(apple),
+        verifiers: Arc::new(verifiers),
         catalog: Arc::default(),
     };
     let app = app::router(state);
