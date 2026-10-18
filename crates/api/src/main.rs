@@ -1,4 +1,7 @@
 mod config;
+// À retirer dès que les handlers renvoient `AppResult` (étape 5, puis phases suivantes).
+#[expect(dead_code, reason = "pas encore utilisé par les handlers")]
+mod error;
 
 use axum::{routing::get, Json, Router};
 use serde_json::{json, Value};
@@ -6,8 +9,6 @@ use serde_json::{json, Value};
 use crate::config::Config;
 
 // TODO(phase 0) : suite des étapes, dans l'ordre suggéré dans docs/PLAN.md
-//  2. `error.rs` : enum `AppError` (crate `thiserror`) qui implémente `IntoResponse`,
-//     pour que les handlers renvoient `Result<_, AppError>`.
 //  3. `state.rs` : `AppState { pool: PgPool, config: Config }` injecté avec `with_state`.
 //  4. Initialiser `tracing_subscriber`, se connecter à Postgres, lancer `sqlx::migrate!()`.
 //  5. Faire vérifier la base par `/health` (un `SELECT 1`).
