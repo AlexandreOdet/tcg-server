@@ -4,7 +4,6 @@ use serde::Deserialize;
 /// (`DATABASE_URL`, `BIND_ADDR`).
 #[derive(Clone, Deserialize)]
 pub struct Config {
-    #[expect(dead_code, reason = "utilisé à l'étape 4 (connexion Postgres)")]
     pub database_url: String,
     #[serde(default = "default_bind_addr")]
     pub bind_addr: String,

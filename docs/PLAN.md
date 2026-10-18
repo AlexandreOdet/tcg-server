@@ -30,10 +30,10 @@ Chaque phase se termine par un point de contrôle vérifiable.
 - [x] Serveur Axum minimal avec `/health`.
 - [x] Configuration typée depuis l'environnement.
 - [x] Enum d'erreur applicatif (`thiserror`) qui implémente `IntoResponse`.
-- [ ] `PgPool` dans l'état partagé, connexion et migrations au démarrage.
-- [ ] Logs structurés (`tracing`) et middleware de trace.
+- [x] `PgPool` dans l'état partagé, connexion et migrations au démarrage.
+- [x] Logs structurés (`tracing`) et middleware de trace.
 
-**Point de contrôle** : le serveur démarre, se connecte à Postgres, `/health` répond (idéalement en vérifiant la base), la CI passe.
+**Point de contrôle** : le serveur démarre, se connecte à Postgres, `/health` répond en vérifiant la base, la CI passe. *(Vérifié en local : 200 base up, 500 base down, arrêt propre sur SIGTERM.)*
 
 ### Phase 1 : Catalogue de cartes
 
