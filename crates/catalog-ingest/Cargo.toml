@@ -1,0 +1,11 @@
+[package]
+name = "catalog-ingest"
+edition.workspace = true
+version.workspace = true
+publish.workspace = true
+
+[dependencies]
+anyhow = "1.0.104"
+domain = { version = "0.1.0", path = "../domain" }
+tokio = { version = "1.53.3", features = ["macros", "rt-multi-thread"] }
+tracing = "0.1.44"

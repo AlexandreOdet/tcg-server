@@ -1,0 +1,8 @@
+[workspace]
+resolver = "2"
+members = ["crates/api", "crates/domain", "crates/catalog-ingest"]
+
+[workspace.package]
+edition = "2021"
+version = "0.1.0"
+publish = false
