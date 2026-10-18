@@ -1,5 +1,6 @@
 mod app;
 mod auth;
+mod boosters;
 mod config;
 // Les variantes d'erreur non encore utilisées sont signalées en build normal ;
 // à retirer quand toutes seront employées.
@@ -49,6 +50,7 @@ async fn main() -> anyhow::Result<()> {
         pool,
         tokens: Arc::new(tokens),
         apple: Arc::new(apple),
+        catalog: Arc::default(),
     };
     let app = app::router(state);
 

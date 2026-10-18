@@ -4,12 +4,13 @@ use axum::{extract::State, routing::get, Json, Router};
 use serde_json::{json, Value};
 use tower_http::trace::TraceLayer;
 
-use crate::{auth, error::AppResult, state::AppState};
+use crate::{auth, boosters, error::AppResult, state::AppState};
 
 pub fn router(state: AppState) -> Router {
     Router::new()
         .route("/health", get(health))
         .merge(auth::routes::router())
+        .merge(boosters::routes::router())
         .layer(TraceLayer::new_for_http())
         .with_state(state)
 }

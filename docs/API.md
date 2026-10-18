@@ -1,4 +1,4 @@
-# Contrat d'API (v1, authentification)
+# Contrat d'API (v1 : authentification et boosters)
 
 Toutes les requêtes et réponses sont en JSON. Les routes protégées demandent
 `Authorization: Bearer <access_token>`.
@@ -19,7 +19,8 @@ Toute erreur applicative a le même corps :
 | 400 | `bad_request` | Champ obligatoire vide |
 | 401 | `unauthorized` | Jeton absent, invalide, expiré, révoqué, ou connexion Apple refusée |
 | 404 | `not_found` | Ressource inexistante (pas encore utilisé) |
-| 409 | `conflict` | Conflit d'état (pas encore utilisé) |
+| 409 | `conflict` | Aucun booster disponible |
+| 503 | `unavailable` | Catalogue de cartes vide (ingestion non lancée) |
 | 500 | `internal` | Erreur serveur ; aucun détail n'est renvoyé |
 
 Le `code` est stable : l'app peut faire un `switch` dessus. Le `message` est destiné aux logs, pas à
@@ -93,6 +94,45 @@ Réponse `200` :
 ```
 
 `pseudo` est `null` tant que le joueur n'en a pas choisi (la route pour le définir n'existe pas encore).
+
+## `GET /me/boosters` (protégée)
+
+```json
+{ "available": 3, "max": 10, "next_at": "2026-10-18T15:30:00Z", "interval_secs": 600 }
+```
+
+Un nouveau joueur démarre avec 3 boosters. Palier gratuit : +1 booster toutes les 10 minutes,
+dans la limite de 10 en stock. `next_at` vaut `null` quand le stock est plein (le minuteur est
+suspendu). Le stock se recalcule à chaque appel : aucun traitement planifié.
+
+## `POST /boosters/open` (protégée)
+
+En-tête **obligatoire** : `Idempotency-Key: <chaîne unique par ouverture>` (1 à 128 caractères ASCII,
+par exemple un UUID généré par l'app **avant** l'envoi).
+
+Réponse `200` :
+
+```json
+{
+  "opening_id": "…",
+  "cards": [
+    {
+      "id": 42, "title": "Paris", "extract": "…", "page_url": "https://fr.wikipedia.org/wiki/Paris",
+      "image_url": "https://…", "rarity": "rare", "is_new": true
+    }
+  ],
+  "boosters": { "available": 2, "max": 10, "next_at": "…", "interval_secs": 600 }
+}
+```
+
+- 5 cartes, **tirées par le serveur** avant toute animation. Doublons possibles ; la dernière carte
+  est garantie « rare » ou mieux. `rarity` : `common`, `rare`, `super_rare`, `legendary`.
+- Taux par emplacement : 1 % légendaire, 4 % super rare, 20 % rare, 75 % commune.
+- `is_new` : la carte n'était pas dans la collection du joueur (une seule fois par carte et par booster).
+- **Idempotence** : renvoyer la même clé (coup de réseau perdu, double appui) renvoie **le même tirage**
+  sans consommer de booster. Une nouvelle ouverture exige une nouvelle clé. Un rejeu fonctionne
+  même quand le stock est vide.
+- `409 conflict` : plus de booster. `400` : clé absente ou invalide. `503` : catalogue vide.
 
 ## `GET /health`
 

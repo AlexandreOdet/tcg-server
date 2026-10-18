@@ -65,13 +65,16 @@ Chaque phase se termine par un point de contrôle vérifiable.
 
 ### Phase 3 : Boosters
 
-- [ ] Migrations `booster_stock`, `user_cards`, `booster_openings`.
-- [ ] Calcul du stock dans `domain` (plafond, plusieurs intervalles, horloge qui recule).
-- [ ] Catalogue par rareté chargé en mémoire au démarrage.
-- [ ] Tirage pondéré avec générateur aléatoire injectable.
-- [ ] `GET /me/boosters`, `POST /boosters/open` (une transaction, verrou de ligne, idempotence).
+- [x] Migrations `booster_stock`, `user_cards`, `booster_openings`.
+- [x] Calcul du stock dans `domain` (plafond, plusieurs intervalles, horloge qui recule, stock au-dessus du plafond).
+- [x] Catalogue par rareté chargé en mémoire (rechargé toutes les 10 min, car l'ingestion est un autre processus).
+- [x] Tirage pondéré avec générateur aléatoire injectable, dernière carte garantie rare ou mieux.
+- [x] `GET /me/boosters`, `POST /boosters/open` (une transaction, verrou de ligne, idempotence).
+- [ ] `GET /me/cards` (collection paginée) : à ajouter avec l'écran Collection de l'app.
 
-**Point de contrôle** : test de concurrence, test d'idempotence, simulation de tirages conforme à la configuration.
+**Point de contrôle** : test de concurrence (16 appels pour 3 boosters : exactement 3 réussissent), test d'idempotence (rejeu séquentiel et concurrent), simulation de 100 000 boosters conforme aux taux. *(Les deux tests de concurrence échouent quand on retire le verrou `FOR UPDATE`.)*
+
+**Valeurs retenues** : taux par emplacement 1 / 4 / 20 / 75 %, 5 cartes, palier gratuit +1 / 10 min, plafond 10, stock de départ 3. Tout est isolé dans `domain` (`Tier::params`, `DrawRates`) pour ajuster sans toucher au reste.
 
 ### Phase 4 : Contrat d'API et robustesse
 
@@ -87,8 +90,3 @@ Chaque phase se termine par un point de contrôle vérifiable.
 ## Hors périmètre pour l'instant
 
 Abonnement premium, packs payants, amis et échanges, duels, enchères.
-
-## À trancher avant la phase 3
-
-- Raretés (commune / rare / super rare / légendaire ?) et probabilités.
-- Nombre de cartes par booster (5 prévu) et paramètres du palier gratuit (10 min, stock max 10).

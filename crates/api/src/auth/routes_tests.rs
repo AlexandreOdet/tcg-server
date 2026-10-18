@@ -57,6 +57,7 @@ fn app(pool: PgPool) -> Router {
         pool,
         tokens: Arc::new(TokenService::new(SECRET).unwrap()),
         apple: Arc::new(StubVerifier),
+        catalog: Arc::default(),
     })
 }
 

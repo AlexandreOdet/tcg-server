@@ -21,6 +21,8 @@ pub enum AppError {
     NotFound,
     #[error("conflit : {0}")]
     Conflict(String),
+    #[error("service indisponible : {0}")]
+    Unavailable(String),
     #[error("erreur de base de données")]
     Database(#[from] sqlx::Error),
     #[error("erreur interne")]
@@ -34,6 +36,7 @@ impl AppError {
             Self::Unauthorized => StatusCode::UNAUTHORIZED,
             Self::NotFound => StatusCode::NOT_FOUND,
             Self::Conflict(_) => StatusCode::CONFLICT,
+            Self::Unavailable(_) => StatusCode::SERVICE_UNAVAILABLE,
             Self::Database(_) | Self::Internal(_) => StatusCode::INTERNAL_SERVER_ERROR,
         }
     }
@@ -45,6 +48,7 @@ impl AppError {
             Self::Unauthorized => "unauthorized",
             Self::NotFound => "not_found",
             Self::Conflict(_) => "conflict",
+            Self::Unavailable(_) => "unavailable",
             Self::Database(_) | Self::Internal(_) => "internal",
         }
     }
