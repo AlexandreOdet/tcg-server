@@ -38,11 +38,13 @@ Chaque phase se termine par un point de contrôle vérifiable.
 ### Phase 1 : Catalogue de cartes
 
 - [x] Migration `cards` (index sur `rarity`).
-- [ ] Ingestion : liste d'articles populaires, résumé, vues. Concurrence limitée, User-Agent identifiable, reprise par upsert sur `wiki_page_id`.
+- [x] Ingestion : top mensuel des vues (API Pageviews, 1 000 articles maximum), résumé via l'API REST Wikipédia, concurrence limitée, reprises sur 429/5xx, User-Agent identifiable, upsert sur `(lang, wiki_page_id)`, redirections fusionnées, rareté recalculée sur tout le catalogue. Sans filtre éditorial pour l'instant (voir ci-dessous).
 - [x] Fonction pure de rareté par quantiles dans `domain`, avec tests.
-- [ ] 1 000 à 2 000 cartes pour développer.
+- [ ] Lancer l'ingestion réelle depuis un poste ayant accès à Wikimedia (non testé contre les vraies API, voir README).
 
 **Point de contrôle** : catalogue peuplé, répartition des raretés cohérente.
+
+**Décisions** : démarrage sans filtre éditorial ; un fichier d'exclusions (préfixes, titres, expressions régulières) sera ajouté avant la bêta TestFlight, avec une option `--prune` pour retirer les cartes déjà créées. Le top mensuel est limité à 1 000 articles : pour un catalogue plus large, il faudra une autre source (liste de titres, Wikidata).
 
 ### Phase 2 : Authentification OIDC
 
