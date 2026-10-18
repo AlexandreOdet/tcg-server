@@ -6,3 +6,9 @@ members = ["crates/api", "crates/domain", "crates/catalog-ingest"]
 edition = "2021"
 version = "0.1.0"
 publish = false
+
+# La génération de clés RSA (tests du vérificateur) est lente sans optimisation.
+[profile.dev.package.num-bigint-dig]
+opt-level = 3
+[profile.dev.package.rsa]
+opt-level = 3

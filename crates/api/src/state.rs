@@ -2,13 +2,14 @@ use std::sync::Arc;
 
 use sqlx::PgPool;
 
-use crate::config::Config;
+use crate::auth::{tokens::TokenService, verifier::TokenVerifier};
 
 /// État partagé injecté dans les handlers via `State<AppState>`.
-/// Les deux champs sont peu coûteux à cloner (`PgPool` et `Arc` sont des handles).
+/// Tous les champs sont peu coûteux à cloner (handles, `Arc`).
 #[derive(Clone)]
 pub struct AppState {
     pub pool: PgPool,
-    #[expect(dead_code, reason = "lu par l'authentification (phase 2)")]
-    pub config: Arc<Config>,
+    pub tokens: Arc<TokenService>,
+    /// Vérificateur des jetons Sign in with Apple (un faux en test).
+    pub apple: Arc<dyn TokenVerifier>,
 }

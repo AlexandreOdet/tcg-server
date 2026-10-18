@@ -1,3 +1,5 @@
+mod app;
+mod auth;
 mod config;
 // Les variantes d'erreur non encore utilisées sont signalées en build normal ;
 // à retirer quand toutes seront employées.
@@ -10,13 +12,17 @@ mod state;
 
 use std::{sync::Arc, time::Duration};
 
-use axum::{extract::State, routing::get, Json, Router};
-use serde_json::{json, Value};
 use sqlx::postgres::PgPoolOptions;
-use tower_http::trace::TraceLayer;
 use tracing_subscriber::EnvFilter;
 
-use crate::{config::Config, error::AppResult, state::AppState};
+use crate::{
+    auth::{
+        tokens::TokenService,
+        verifier::{OidcConfig, OidcVerifier},
+    },
+    config::Config,
+    state::AppState,
+};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -28,6 +34,8 @@ async fn main() -> anyhow::Result<()> {
         .init();
 
     let config = Config::from_env()?;
+    let tokens = TokenService::new(&config.jwt_secret)?;
+    let apple = OidcVerifier::new(OidcConfig::apple(&config.apple_bundle_id))?;
 
     let pool = PgPoolOptions::new()
         .max_connections(10)
@@ -37,30 +45,20 @@ async fn main() -> anyhow::Result<()> {
     sqlx::migrate!("../../migrations").run(&pool).await?;
     tracing::info!("migrations appliquées");
 
-    let bind_addr = config.bind_addr.clone();
     let state = AppState {
         pool,
-        config: Arc::new(config),
+        tokens: Arc::new(tokens),
+        apple: Arc::new(apple),
     };
+    let app = app::router(state);
 
-    let app = Router::new()
-        .route("/health", get(health))
-        .layer(TraceLayer::new_for_http())
-        .with_state(state);
-
-    let listener = tokio::net::TcpListener::bind(&bind_addr).await?;
-    tracing::info!(%bind_addr, "serveur démarré");
+    let listener = tokio::net::TcpListener::bind(&config.bind_addr).await?;
+    tracing::info!(bind_addr = %config.bind_addr, "serveur démarré");
     axum::serve(listener, app)
         .with_graceful_shutdown(shutdown_signal())
         .await?;
     tracing::info!("serveur arrêté");
     Ok(())
-}
-
-/// `/health` vérifie aussi que la base répond : utile pour les sondes de déploiement.
-async fn health(State(state): State<AppState>) -> AppResult<Json<Value>> {
-    sqlx::query("SELECT 1").execute(&state.pool).await?;
-    Ok(Json(json!({ "status": "ok" })))
 }
 
 /// Attend Ctrl+C ou SIGTERM (envoyé par Docker / l'orchestrateur à l'arrêt).

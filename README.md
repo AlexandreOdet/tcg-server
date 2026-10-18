@@ -13,6 +13,14 @@ cargo run -p api
 curl localhost:8080/health
 ```
 
+Le serveur exige `JWT_SECRET` (32 caractères minimum) et `APPLE_BUNDLE_ID` : voir `.env.example`.
+
+## Documentation
+
+- [`docs/PLAN.md`](docs/PLAN.md) : plan de développement et décisions
+- [`docs/API.md`](docs/API.md) : contrat d'API (authentification)
+- [`docs/IOS.md`](docs/IOS.md) : plan de départ de l'app iOS
+
 ## Ingestion du catalogue
 
 ```bash

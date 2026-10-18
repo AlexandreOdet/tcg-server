@@ -1,0 +1,104 @@
+# Contrat d'API (v1, authentification)
+
+Toutes les requêtes et réponses sont en JSON. Les routes protégées demandent
+`Authorization: Bearer <access_token>`.
+
+> Ce contrat est écrit à la main en attendant l'OpenAPI généré (phase 4). Il décrit ce que le
+> serveur fait aujourd'hui.
+
+## Format d'erreur
+
+Toute erreur applicative a le même corps :
+
+```json
+{ "error": { "code": "unauthorized", "message": "non authentifié" } }
+```
+
+| Statut | `code` | Quand |
+|---|---|---|
+| 400 | `bad_request` | Champ obligatoire vide |
+| 401 | `unauthorized` | Jeton absent, invalide, expiré, révoqué, ou connexion Apple refusée |
+| 404 | `not_found` | Ressource inexistante (pas encore utilisé) |
+| 409 | `conflict` | Conflit d'état (pas encore utilisé) |
+| 500 | `internal` | Erreur serveur ; aucun détail n'est renvoyé |
+
+Le `code` est stable : l'app peut faire un `switch` dessus. Le `message` est destiné aux logs, pas à
+l'utilisateur.
+
+⚠️ Un corps JSON mal formé (ou un champ manquant) est refusé par le framework avec un statut 4xx
+**sans** ce format (texte brut). L'app ne doit pas supposer que tout 4xx contient un `error`.
+
+## `POST /auth/apple`
+
+Échange un jeton Sign in with Apple contre une session.
+
+```json
+{ "identity_token": "<JWT renvoyé par Apple>", "nonce": "<nonce brut>" }
+```
+
+**Nonce** : l'app génère une chaîne aléatoire (le *nonce brut*), envoie son **SHA-256 en hexadécimal
+minuscule** à Apple (`request.nonce`), et envoie le nonce **brut** ici. Le serveur compare.
+
+Réponse `200` :
+
+```json
+{
+  "access_token": "<JWT, 15 min>",
+  "refresh_token": "<opaque, 60 jours, à usage unique>",
+  "token_type": "Bearer",
+  "expires_in": 900,
+  "is_new_user": true
+}
+```
+
+`is_new_user` vaut `true` à la toute première connexion : l'app peut alors proposer de choisir un pseudo.
+
+## `POST /auth/refresh`
+
+```json
+{ "refresh_token": "<refresh token courant>" }
+```
+
+Réponse `200` : même forme que `/auth/apple` (`is_new_user` est toujours `false`).
+
+**Règles à respecter côté app :**
+
+- Le refresh token est **à usage unique** : chaque appel en renvoie un nouveau, à stocker immédiatement
+  (Keychain) à la place de l'ancien.
+- **Un seul refresh à la fois.** Si plusieurs requêtes reçoivent un 401 en même temps, une seule appelle
+  `/auth/refresh` et les autres attendent son résultat.
+- Rejouer un ancien refresh token (plus de 10 s après son usage) révoque **toute la session** : l'app
+  reçoit alors 401 partout et doit renvoyer l'utilisateur vers l'écran de connexion.
+- `401` sur `/auth/refresh` = session terminée : repasser par Sign in with Apple.
+
+## `POST /auth/logout`
+
+```json
+{ "refresh_token": "<refresh token courant>" }
+```
+
+Réponse `204`, sans corps. Idempotent : un jeton inconnu ou déjà révoqué répond aussi `204`.
+L'access token en cours reste valide jusqu'à son expiration (15 min maximum).
+
+## `GET /me` (protégée)
+
+Réponse `200` :
+
+```json
+{
+  "id": "8f0c2a55-1f6f-4a53-9d8e-6c1b5f0b1f10",
+  "pseudo": null,
+  "created_at": "2026-10-18T15:19:13.563255Z"
+}
+```
+
+`pseudo` est `null` tant que le joueur n'en a pas choisi (la route pour le définir n'existe pas encore).
+
+## `GET /health`
+
+`200 {"status":"ok"}` si le serveur et la base répondent, `500` sinon. Sans authentification.
+
+## Identifiants
+
+- `id` des utilisateurs : UUID v4.
+- Dates : RFC 3339, UTC.
