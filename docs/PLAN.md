@@ -37,9 +37,9 @@ Chaque phase se termine par un point de contrôle vérifiable.
 
 ### Phase 1 : Catalogue de cartes
 
-- [ ] Migration `cards` (index sur `rarity`).
+- [x] Migration `cards` (index sur `rarity`).
 - [ ] Ingestion : liste d'articles populaires, résumé, vues. Concurrence limitée, User-Agent identifiable, reprise par upsert sur `wiki_page_id`.
-- [ ] Fonction pure de rareté par quantiles dans `domain`, avec tests.
+- [x] Fonction pure de rareté par quantiles dans `domain`, avec tests.
 - [ ] 1 000 à 2 000 cartes pour développer.
 
 **Point de contrôle** : catalogue peuplé, répartition des raretés cohérente.
