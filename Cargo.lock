@@ -39,6 +39,7 @@ dependencies = [
  "anyhow",
  "axum",
  "domain",
+ "dotenvy",
  "envy",
  "serde",
  "serde_json",

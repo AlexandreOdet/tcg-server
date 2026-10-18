@@ -1,9 +1,11 @@
+mod config;
+
 use axum::{routing::get, Json, Router};
 use serde_json::{json, Value};
 
-// TODO(phase 0) : à faire par toi, dans l'ordre suggéré dans docs/PLAN.md
-//  1. `config.rs` : struct `Config` désérialisée depuis l'environnement (crate `envy`),
-//     avec au minimum DATABASE_URL et BIND_ADDR.
+use crate::config::Config;
+
+// TODO(phase 0) : suite des étapes, dans l'ordre suggéré dans docs/PLAN.md
 //  2. `error.rs` : enum `AppError` (crate `thiserror`) qui implémente `IntoResponse`,
 //     pour que les handlers renvoient `Result<_, AppError>`.
 //  3. `state.rs` : `AppState { pool: PgPool, config: Config }` injecté avec `with_state`.
@@ -13,9 +15,13 @@ use serde_json::{json, Value};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
+    // Charge `.env` s'il existe (développement local) ; en production, l'environnement suffit.
+    let _ = dotenvy::dotenv();
+    let config = Config::from_env()?;
+
     let app = Router::new().route("/health", get(health));
 
-    let listener = tokio::net::TcpListener::bind("0.0.0.0:8080").await?;
+    let listener = tokio::net::TcpListener::bind(&config.bind_addr).await?;
     axum::serve(listener, app).await?;
     Ok(())
 }

@@ -28,7 +28,7 @@ Chaque phase se termine par un point de contrôle vérifiable.
 
 - [x] Workspace Cargo, `docker-compose` Postgres, `.env.example`, CI (fmt, clippy, test).
 - [x] Serveur Axum minimal avec `/health`.
-- [ ] Configuration typée depuis l'environnement.
+- [x] Configuration typée depuis l'environnement.
 - [ ] Enum d'erreur applicatif (`thiserror`) qui implémente `IntoResponse`.
 - [ ] `PgPool` dans l'état partagé, connexion et migrations au démarrage.
 - [ ] Logs structurés (`tracing`) et middleware de trace.
